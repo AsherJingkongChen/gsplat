@@ -210,7 +210,7 @@ class Parser:
         points3D = reconstruction.points3D
         points = np.array([p.xyz for p in points3D.values()])
         points_err = np.array([p.error for p in points3D.values()])
-        points_rgb = np.array([p.rgb for p in points3D.values()])
+        points_rgb = np.array([p.color for p in points3D.values()])
         
         point_indices = dict()
         for k, im in imdata.items():
