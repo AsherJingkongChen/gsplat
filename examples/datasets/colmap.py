@@ -99,30 +99,41 @@ class Parser:
 
             # camera intrinsics
             cam = reconstruction.cameras[camera_id]
-            fx, fy, cx, cy = cam.fx, cam.fy, cam.cx, cam.cy
+            if cam.model_name == "SIMPLE_PINHOLE":
+                fx = fy = cam.params[0]
+                cx = cam.params[1]
+                cy = cam.params[2]
+            elif cam.model_name == "PINHOLE":
+                fx = cam.params[0]
+                fy = cam.params[1]
+                cx = cam.params[2]
+                cy = cam.params[3]
+            else:
+                # and other camera models
+                raise NotImplementedError(f"Camera model {cam.model_name} not supported")
             K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
             K[:2, :] /= factor
             Ks_dict[camera_id] = K
 
             # Get distortion parameters.
-            type_ = cam.camera_type
-            if type_ == 0 or type_ == "SIMPLE_PINHOLE":
+            type_ = cam.model_name
+            if type_ == "SIMPLE_PINHOLE":
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 1 or type_ == "PINHOLE":
+            elif type_ == "PINHOLE":
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            if type_ == 2 or type_ == "SIMPLE_RADIAL":
-                params = np.array([cam.k1, 0.0, 0.0, 0.0], dtype=np.float32)
+            elif type_ == "SIMPLE_RADIAL":
+                params = np.array([cam.params[3], 0.0, 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 3 or type_ == "RADIAL":
-                params = np.array([cam.k1, cam.k2, 0.0, 0.0], dtype=np.float32)
+            elif type_ == "RADIAL":
+                params = np.array([cam.params[4], cam.params[5], 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 4 or type_ == "OPENCV":
-                params = np.array([cam.k1, cam.k2, cam.p1, cam.p2], dtype=np.float32)
+            elif type_ == "OPENCV":
+                params = np.array(cam.params[4:8], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == 5 or type_ == "OPENCV_FISHEYE":
-                params = np.array([cam.k1, cam.k2, cam.k3, cam.k4], dtype=np.float32)
+            elif type_ == "OPENCV_FISHEYE":
+                params = np.array(cam.params[4:8], dtype=np.float32)
                 camtype = "fisheye"
             else:
                 params = np.empty(0, dtype=np.float32)
