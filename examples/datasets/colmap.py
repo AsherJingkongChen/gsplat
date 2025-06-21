@@ -7,7 +7,7 @@ import imageio.v2 as imageio
 import numpy as np
 import torch
 from PIL import Image
-from pycolmap import Reconstruction
+from pycolmap import CameraModelId, Reconstruction
 from tqdm import tqdm
 from typing_extensions import assert_never
 
@@ -99,40 +99,40 @@ class Parser:
 
             # camera intrinsics
             cam = reconstruction.cameras[camera_id]
-            if cam.model == "SIMPLE_PINHOLE":
+            if cam.model == CameraModelId.SIMPLE_PINHOLE:
                 fx = fy = cam.params[0]
                 cx = cam.params[1]
                 cy = cam.params[2]
-            elif cam.model == "PINHOLE":
+            elif cam.model == CameraModelId.PINHOLE:
                 fx = cam.params[0]
                 fy = cam.params[1]
                 cx = cam.params[2]
                 cy = cam.params[3]
             else:
                 # and other camera models
-                raise NotImplementedError(f"Camera model {cam.model} not supported")
+                raise NotImplementedError(f"Camera model {cam.model.name} not supported")
             K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
             K[:2, :] /= factor
             Ks_dict[camera_id] = K
 
             # Get distortion parameters.
             type_ = cam.model
-            if type_ == "SIMPLE_PINHOLE":
+            if type_ == CameraModelId.SIMPLE_PINHOLE:
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == "PINHOLE":
+            elif type_ == CameraModelId.PINHOLE:
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == "SIMPLE_RADIAL":
+            elif type_ == CameraModelId.SIMPLE_RADIAL:
                 params = np.array([cam.params[3], 0.0, 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == "RADIAL":
+            elif type_ == CameraModelId.RADIAL:
                 params = np.array([cam.params[4], cam.params[5], 0.0, 0.0], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == "OPENCV":
+            elif type_ == CameraModelId.OPENCV:
                 params = np.array(cam.params[4:8], dtype=np.float32)
                 camtype = "perspective"
-            elif type_ == "OPENCV_FISHEYE":
+            elif type_ == CameraModelId.OPENCV_FISHEYE:
                 params = np.array(cam.params[4:8], dtype=np.float32)
                 camtype = "fisheye"
             else:
@@ -148,7 +148,7 @@ class Parser:
 
         if len(imdata) == 0:
             raise ValueError("No images found in COLMAP.")
-        if not (type_ == 0 or type_ == 1):
+        if not (type_ == CameraModelId.SIMPLE_PINHOLE or type_ == CameraModelId.PINHOLE):
             print("Warning: COLMAP Camera is not PINHOLE. Images have distortion.")
 
         w2c_mats = np.stack(w2c_mats, axis=0)
