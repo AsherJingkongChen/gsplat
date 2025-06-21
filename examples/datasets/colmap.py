@@ -7,7 +7,7 @@ import imageio.v2 as imageio
 import numpy as np
 import torch
 from PIL import Image
-from pycolmap import SceneManager
+from pycolmap import Reconstruction
 from tqdm import tqdm
 from typing_extensions import assert_never
 
@@ -75,13 +75,10 @@ class Parser:
             colmap_dir
         ), f"COLMAP directory {colmap_dir} does not exist."
 
-        manager = SceneManager(colmap_dir)
-        manager.load_cameras()
-        manager.load_images()
-        manager.load_points3D()
+        reconstruction = Reconstruction(colmap_dir)
 
         # Extract extrinsic matrices in world-to-camera format.
-        imdata = manager.images
+        imdata = reconstruction.images
         w2c_mats = []
         camera_ids = []
         Ks_dict = dict()
@@ -101,7 +98,7 @@ class Parser:
             camera_ids.append(camera_id)
 
             # camera intrinsics
-            cam = manager.cameras[camera_id]
+            cam = reconstruction.cameras[camera_id]
             fx, fy, cx, cy = cam.fx, cam.fy, cam.cx, cam.cy
             K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
             K[:2, :] /= factor
@@ -127,9 +124,9 @@ class Parser:
             elif type_ == 5 or type_ == "OPENCV_FISHEYE":
                 params = np.array([cam.k1, cam.k2, cam.k3, cam.k4], dtype=np.float32)
                 camtype = "fisheye"
-            assert (
-                camtype == "perspective" or camtype == "fisheye"
-            ), f"Only perspective and fisheye cameras are supported, got {type_}"
+            else:
+                params = np.empty(0, dtype=np.float32)
+                camtype = "perspective"
 
             params_dict[camera_id] = params
             imsize_dict[camera_id] = (cam.width // factor, cam.height // factor)
@@ -199,20 +196,14 @@ class Parser:
         image_paths = [os.path.join(image_dir, colmap_to_image[f]) for f in image_names]
 
         # 3D points and {image_name -> [point_idx]}
-        points = manager.points3D.astype(np.float32)
-        points_err = manager.point3D_errors.astype(np.float32)
-        points_rgb = manager.point3D_colors.astype(np.uint8)
+        points3D = reconstruction.points3D
+        points = np.array([p.xyz for p in points3D.values()])
+        points_err = np.array([p.error for p in points3D.values()])
+        points_rgb = np.array([p.rgb for p in points3D.values()])
+        
         point_indices = dict()
-
-        image_id_to_name = {v: k for k, v in manager.name_to_image_id.items()}
-        for point_id, data in manager.point3D_id_to_images.items():
-            for image_id, _ in data:
-                image_name = image_id_to_name[image_id]
-                point_idx = manager.point3D_id_to_point3D_idx[point_id]
-                point_indices.setdefault(image_name, []).append(point_idx)
-        point_indices = {
-            k: np.array(v).astype(np.int32) for k, v in point_indices.items()
-        }
+        for k, im in imdata.items():
+            point_indices[im.name] = np.array([p.point3D_id for p in im.points2D if p.has_point3D()])
 
         # Normalize the world space.
         if normalize:
