@@ -88,8 +88,8 @@ class Parser:
         bottom = np.array([0, 0, 0, 1]).reshape(1, 4)
         for k in imdata:
             im = imdata[k]
-            rot = im.rotation_matrix()
-            trans = im.tvec.reshape(3, 1)
+            rot = im.cam_from_world.rotation.matrix()
+            trans = im.cam_from_world.translation.reshape(3, 1)
             w2c = np.concatenate([np.concatenate([rot, trans], 1), bottom], axis=0)
             w2c_mats.append(w2c)
 
