@@ -99,24 +99,24 @@ class Parser:
 
             # camera intrinsics
             cam = reconstruction.cameras[camera_id]
-            if cam.model_name == "SIMPLE_PINHOLE":
+            if cam.model == "SIMPLE_PINHOLE":
                 fx = fy = cam.params[0]
                 cx = cam.params[1]
                 cy = cam.params[2]
-            elif cam.model_name == "PINHOLE":
+            elif cam.model == "PINHOLE":
                 fx = cam.params[0]
                 fy = cam.params[1]
                 cx = cam.params[2]
                 cy = cam.params[3]
             else:
                 # and other camera models
-                raise NotImplementedError(f"Camera model {cam.model_name} not supported")
+                raise NotImplementedError(f"Camera model {cam.model} not supported")
             K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
             K[:2, :] /= factor
             Ks_dict[camera_id] = K
 
             # Get distortion parameters.
-            type_ = cam.model_name
+            type_ = cam.model
             if type_ == "SIMPLE_PINHOLE":
                 params = np.empty(0, dtype=np.float32)
                 camtype = "perspective"
